@@ -15,7 +15,12 @@ class RunLock extends Command
             ->setAliases(['r', 'run'])
             ->setDescription('Check for security advisories for the packages in your composer.json')
             ->addOption('dev', ['D', 'd'], InputOption::VALUE_NONE, 'If require-dev should be checked as well')
-            ->addOption('allow', ['exclude', 'E', 'e', 'A', 'a'], InputOption::VALUE_REQUIRED, 'Exclude some vulnerabilities,');
+            ->addOption(
+                'allow',
+                ['exclude', 'E', 'e', 'A', 'a'],
+                InputOption::VALUE_REQUIRED,
+                'Exclude some vulnerabilities,'
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -89,15 +94,21 @@ class RunLock extends Command
                             if (strpos($versionStr, '>=') !== false) {
                                 $versionStr = str_replace('>=', '', $versionStr);
                                 $par1 = ($curVersion >= $this->getFullVersion($versionStr));
-                            } else if (strpos($versionStr, '>') !== false) {
-                                $versionStr = str_replace('>', '', $versionStr);
-                                $par1 = ($curVersion > $this->getFullVersion($versionStr));
-                            } else if (strpos($versionStr, '<=') !== false) {
-                                $versionStr = str_replace('<=', '', $versionStr);
-                                $par2 = ($curVersion <= $this->getFullVersion($versionStr));
-                            } else if (strpos($versionStr, '<') !== false) {
-                                $versionStr = str_replace('<', '', $versionStr);
-                                $par2 = ($curVersion < $this->getFullVersion($versionStr));
+                            } else {
+                                if (strpos($versionStr, '>') !== false) {
+                                    $versionStr = str_replace('>', '', $versionStr);
+                                    $par1 = ($curVersion > $this->getFullVersion($versionStr));
+                                } else {
+                                    if (strpos($versionStr, '<=') !== false) {
+                                        $versionStr = str_replace('<=', '', $versionStr);
+                                        $par2 = ($curVersion <= $this->getFullVersion($versionStr));
+                                    } else {
+                                        if (strpos($versionStr, '<') !== false) {
+                                            $versionStr = str_replace('<', '', $versionStr);
+                                            $par2 = ($curVersion < $this->getFullVersion($versionStr));
+                                        }
+                                    }
+                                }
                             }
 
                             if ($par1 && $par2) {
@@ -122,19 +133,21 @@ class RunLock extends Command
         }
 
         $output->writeln('');
+
         $vlna = count($allowRes);
+        $vln = count($result);
+
+        $vlnFormat = '<fg=green>' . ($vln + $vlna) . ' packages</>';
 
         if ($vlna > 0) {
             $output->writeln('<fg=magenta>Allowed:</>');
             foreach ($allowRes as $key => $val) {
                 $output->writeln('<fg=green>' . $key . '</> <fg=magenta>(v' . $val . ')</>');
             }
+            $vlnFormat = '<fg=magenta>' . ($vln + $vlna) . ' packages</>';
             $output->writeln('<fg=magenta>--------------------------</>');
         }
 
-        $vln = count($result);
-
-        $vlnFormat = '<fg=green>' . ($vln + $vlna) . ' packages</>';
         $res = 0;
         if ($vln > 0) {
             $res = 1;
