@@ -14,11 +14,17 @@ class RunLock extends Command
         $this->setName('run:check')
             ->setAliases(['r', 'run'])
             ->setDescription('Check for security advisories for the packages in your composer.json')
-            ->addOption('dev', 'D', InputOption::VALUE_NONE, 'If require-dev should be checked as well');
+            ->addOption('dev', ['D', 'd'], InputOption::VALUE_NONE, 'If require-dev should be checked as well')
+            ->addOption('allow', ['exclude', 'E', 'e', 'A', 'a'], InputOption::VALUE_REQUIRED, 'Exclude some vulnerabilities,');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        $allow = [];
+        if ($input->getOption('allow')) {
+            $allow = array_fill_keys(explode(',', $input->getOption('allow')), 1);
+        }
+
         $dir = getcwd() . '/';
 
         if (!file_exists($dir . 'composer.lock')) {
@@ -47,42 +53,28 @@ class RunLock extends Command
         $counterPart = 0;
         $max = 50;
         $fullPackages = [];
-        foreach ($json['packages'] as $package) {
-            $key = $package['name'];
-            $value = mb_eregi_replace("[^0-9.]", '', $package['version']);
-            $fullPackages[$counterPart][$key] = $value;
 
-            if (++$counter === $max) {
-                ++$counterPart;
-                $counter = 0;
-            }
-        }
+        $this->parsePackages($json['packages'], $max, $fullPackages, $counter, $counterPart);
 
         if ($input->getOption('dev')) {
-            foreach ($json['packages-dev'] as $package) {
-                $key = $package['name'];
-                $value = mb_eregi_replace("[^0-9.]", '', $package['version']);
-                $fullPackages[$key] = $value;
-
-                if (++$counter === $max) {
-                    ++$counterPart;
-                    $counter = 0;
-                }
-            }
+            $this->parsePackages($json['packages-dev'], $max, $fullPackages, $counter, $counterPart);
         }
 
         $packages = [];
         $advisoriesAll = [];
         foreach ($fullPackages as $partPackages) {
-            $responseJson = file_get_contents(
-                'https://packagist.org/api/security-advisories/?packages[]=' .
-                implode('&packages[]=', array_keys($partPackages))
-            );
+            if (count($partPackages) > 0) {
+                $responseJson = file_get_contents(
+                    'https://packagist.org/api/security-advisories/?packages[]=' .
+                    implode('&packages[]=', array_keys($partPackages))
+                );
 
-            $packages = array_merge($packages, $partPackages);
-            $advisoriesAll = array_merge($advisoriesAll, json_decode($responseJson, true)['advisories']);
+                $packages = array_merge($packages, $partPackages);
+                $advisoriesAll = array_merge($advisoriesAll, json_decode($responseJson, true)['advisories']);
+            }
         }
 
+        $allowRes = [];
         $result = [];
         foreach ($advisoriesAll as $key => $advisories) {
             $curVersion = $this->getFullVersion($packages[$key]);
@@ -109,7 +101,11 @@ class RunLock extends Command
                             }
 
                             if ($par1 && $par2) {
-                                $result[$key] = $packages[$key];
+                                if (isset($allow[$key])) {
+                                    $allowRes[$key] = $packages[$key];
+                                } else {
+                                    $result[$key] = $packages[$key];
+                                }
                                 break;
                             }
                         }
@@ -125,16 +121,29 @@ class RunLock extends Command
             }
         }
 
+        $output->writeln('');
+        $vlna = count($allowRes);
+
+        if ($vlna > 0) {
+            $output->writeln('<fg=magenta>Allowed:</>');
+            foreach ($allowRes as $key => $val) {
+                $output->writeln('<fg=green>' . $key . '</> <fg=magenta>(v' . $val . ')</>');
+            }
+            $output->writeln('<fg=magenta>--------------------------</>');
+        }
+
         $vln = count($result);
 
-        $vlnFormat = '<fg=green>' . $vln . ' packages</>';
+        $vlnFormat = '<fg=green>' . ($vln + $vlna) . ' packages</>';
         $res = 0;
         if ($vln > 0) {
             $res = 1;
+            $output->writeln('<fg=red>Not allowed:</>');
             foreach ($result as $key => $val) {
                 $output->writeln('<fg=green>' . $key . '</> <fg=red>(v' . $val . ')</>');
             }
-            $vlnFormat = '<fg=red>' . $vln . ' packages</>';
+            $vlnFormat = '<fg=red>' . ($vln + $vlna) . ' packages</>';
+            $output->writeln('<fg=red>--------------------------</>');
         }
         $output->writeln($vlnFormat . ' have known vulnerabilities.');
 
@@ -157,5 +166,26 @@ class RunLock extends Command
         }
 
         return (int)$versionFull;
+    }
+
+    /**
+     * @param array $packages
+     * @param int $max
+     * @param array $fullPackages
+     * @param int $counter
+     * @param int $counterPart
+     * @return void
+     */
+    private function parsePackages($packages, $max, &$fullPackages, &$counter, &$counterPart)
+    {
+        foreach ($packages as $package) {
+            $value = mb_eregi_replace("[^0-9.]", '', $package['version']);
+            $fullPackages[$counterPart][$package['name']] = $value;
+
+            if (++$counter === $max) {
+                ++$counterPart;
+                $counter = 0;
+            }
+        }
     }
 }
