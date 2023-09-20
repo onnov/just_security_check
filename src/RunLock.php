@@ -1,6 +1,6 @@
 <?php
 
-namespace JautSecurityCheck\Console;
+namespace JustSecurityCheck\Console;
 
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
