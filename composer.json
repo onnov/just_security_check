@@ -1,0 +1,23 @@
+{
+    "name": "onnov/jast_security_check",
+    "description": "Jast check for security vulnerabilities in your project using the security advisory database.",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "onnov",
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "JastSecurityCheck\\Console\\": "src/"
+        }
+    },
+    "bin": [
+        "bin/jast_security_check"
+    ],
+    "require": {
+        "symfony/console": "^3.4|^4|^5|^6",
+        "ext-json": "*",
+        "ext-mbstring": "*"
+    }
+}
