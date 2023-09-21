@@ -9,6 +9,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class RunLock extends Command
 {
+    private $version = [];
+
     protected function configure()
     {
         $this->setName('run:check')
@@ -90,24 +92,32 @@ class RunLock extends Command
                     foreach ($ranges as $range) {
                         $par1 = false;
                         $par2 = false;
-                        foreach (explode(',', $range) as $versionStr) {
+                        $versiomArr = explode(',', $range);
+                        $versionNotRange = (count($versiomArr) === 1);
+                        foreach ($versiomArr as $versionStr) {
                             if (strpos($versionStr, '>=') !== false) {
                                 $versionStr = str_replace('>=', '', $versionStr);
                                 $par1 = ($curVersion >= $this->getFullVersion($versionStr));
-                            } else {
-                                if (strpos($versionStr, '>') !== false) {
-                                    $versionStr = str_replace('>', '', $versionStr);
-                                    $par1 = ($curVersion > $this->getFullVersion($versionStr));
-                                } else {
-                                    if (strpos($versionStr, '<=') !== false) {
-                                        $versionStr = str_replace('<=', '', $versionStr);
-                                        $par2 = ($curVersion <= $this->getFullVersion($versionStr));
-                                    } else {
-                                        if (strpos($versionStr, '<') !== false) {
-                                            $versionStr = str_replace('<', '', $versionStr);
-                                            $par2 = ($curVersion < $this->getFullVersion($versionStr));
-                                        }
-                                    }
+                                if ($versionNotRange) {
+                                    $par2 = true;
+                                }
+                            } elseif (strpos($versionStr, '>') !== false) {
+                                $versionStr = str_replace('>', '', $versionStr);
+                                $par1 = ($curVersion > $this->getFullVersion($versionStr));
+                                if ($versionNotRange) {
+                                    $par2 = true;
+                                }
+                            } elseif (strpos($versionStr, '<=') !== false) {
+                                $versionStr = str_replace('<=', '', $versionStr);
+                                $par2 = ($curVersion <= $this->getFullVersion($versionStr));
+                                if ($versionNotRange) {
+                                    $par1 = true;
+                                }
+                            } elseif (strpos($versionStr, '<') !== false) {
+                                $versionStr = str_replace('<', '', $versionStr);
+                                $par2 = ($curVersion < $this->getFullVersion($versionStr));
+                                if ($versionNotRange) {
+                                    $par1 = true;
                                 }
                             }
 
@@ -142,7 +152,8 @@ class RunLock extends Command
         if ($vlna > 0) {
             $output->writeln('<fg=magenta>Allowed:</>');
             foreach ($allowRes as $key => $val) {
-                $output->writeln('<fg=green>' . $key . '</> <fg=magenta>(v' . $val . ')</>');
+                $link = ' https://packagist.org/packages/' . $key . '#' . $this->version[$key];
+                $output->writeln('<fg=green>' . $key . '</> <fg=magenta>(v' . $val . ')</>' . $link);
             }
             $vlnFormat = '<fg=magenta>' . ($vln + $vlna) . ' packages</>';
             $output->writeln('<fg=magenta>--------------------------</>');
@@ -153,7 +164,8 @@ class RunLock extends Command
             $res = 1;
             $output->writeln('<fg=red>Not allowed:</>');
             foreach ($result as $key => $val) {
-                $output->writeln('<fg=green>' . $key . '</> <fg=red>(v' . $val . ')</>');
+                $link = ' https://packagist.org/packages/' . $key . '#' . $this->version[$key];
+                $output->writeln('<fg=green>' . $key . '</> <fg=red>(v' . $val . ')</>' . $link);
             }
             $vlnFormat = '<fg=red>' . ($vln + $vlna) . ' packages</>';
             $output->writeln('<fg=red>--------------------------</>');
@@ -175,7 +187,7 @@ class RunLock extends Command
 
         $versionFull = '';
         foreach ($versionArr as & $item) {
-            $versionFull .= str_pad($item, 3, '0');
+            $versionFull .= str_pad($item, 3, '0', STR_PAD_LEFT);
         }
 
         return (int)$versionFull;
@@ -192,6 +204,7 @@ class RunLock extends Command
     private function parsePackages($packages, $max, &$fullPackages, &$counter, &$counterPart)
     {
         foreach ($packages as $package) {
+            $this->version[$package['name']] = $package['version'];
             $value = mb_eregi_replace("[^0-9.]", '', $package['version']);
             $fullPackages[$counterPart][$package['name']] = $value;
 
