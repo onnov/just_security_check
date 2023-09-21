@@ -13,8 +13,8 @@ class RunLock extends Command
     {
         $this->setName('run:check')
             ->setAliases(['r', 'run'])
-            ->setDescription('Check for security advisories for the packages in your composer.json')
-            ->addOption('dev', ['D', 'd'], InputOption::VALUE_NONE, 'If require-dev should be checked as well')
+            ->setDescription('Check which packages are older than a given date in your composer.lock')
+            ->addOption('dev', 'd', InputOption::VALUE_NONE, 'If require-dev should be checked as well')
             ->addOption(
                 'allow',
                 ['exclude', 'E', 'e', 'A', 'a'],
@@ -33,7 +33,7 @@ class RunLock extends Command
         $dir = getcwd() . '/';
 
         if (!file_exists($dir . 'composer.lock')) {
-            $output->write('No composer.lock file found.');
+            $output->writeln('<fg=red>No composer.lock file found !</>');
 
             return 1;
         }
@@ -43,13 +43,13 @@ class RunLock extends Command
         $json = json_decode($composerLock, true);
 
         if (!array_key_exists('packages', $json)) {
-            $output->write('There is no require.' . PHP_EOL);
+            $output->writeln('<fg=red>There is no "require" !</>');
             return 1;
         }
 
         if ($input->getOption('dev')) {
             if (!array_key_exists('packages-dev', $json)) {
-                $output->write('There is no require-dev.' . PHP_EOL);
+                $output->writeln('<fg=red>There is no "require-dev" !</>');
                 return 1;
             }
         }
