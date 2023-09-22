@@ -32,6 +32,6 @@ docker compose exec php bin/just_security_check t -d -a psr/*
 
 # if need to exclude a packet after the max time
 php bin/just_security_check r -e amphp/process
-php bin/just_security_check r -e sberlogistic/*
-php bin/just_security_check r -e sberlogistic
+php bin/just_security_check r -e vendor/*
+php bin/just_security_check r -e vendor
 ```
